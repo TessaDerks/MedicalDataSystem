@@ -1,11 +1,14 @@
-import java.security.*;
 import java.util.*;
-import javax.crypto.*;
-import javax.crypto.spec.SecretKeySpec;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.security.SecureRandom;
 
 public class MedicalDataSystem {
 
@@ -45,31 +48,19 @@ public class MedicalDataSystem {
         }
     }
         */
-
+    private static cryptographyMethods crypt = new cryptographyMethods();
     private static Server server = new Server();
     private static MedicalStaff loggedInStaff;
     private static Researcher loggedInResearcher;
     static String role;
-
-    private static final Map<String, String> credentials_staff = new HashMap<>() {{
-        put("", "password1");
-        put("researcher1:Researcher", "password2");
-    }};
-
-    private static final Map<String, String> credentials_researchers = new HashMap<>() {{
-        put("staff1:MedicalStaff", "password1");
-        put("researcher1:Researcher", "password2");
-    }};
+    private static int dataID = 0;
 
     public static void main(String[] args) {
-        // Create Users
-        MedicalStaff staff = new MedicalStaff("124361", "cryptographyCourse5");
-        Researcher researcher1 = new Researcher("271724", "trentoUni8");
-        Researcher researcher2 = new Researcher("249201", "computerScience9");
-        Researcher researcher3 = new Researcher("200613", "examSeason3");
-
-        server.registerUser(staff);
-        server.registerUser(researcher);
+        // Create Users >>>> have file with users instead of creating them each time?
+        server.registerUser(new MedicalStaff("124361", "cryptographyCourse5"));
+        server.registerUser(new Researcher("271724", "trentoUni8"));
+        server.registerUser(new Researcher("249201", "computerScience9"));
+        server.registerUser(new Researcher("200613", "examSeason3"));
 
         // Launch GUI
         SwingUtilities.invokeLater(MedicalDataSystem::loginGUI);
@@ -88,22 +79,17 @@ public class MedicalDataSystem {
         JPasswordField passField = new JPasswordField();
         JButton loginButton = new JButton("Login");
            
-        JRadioButton rb1=new JRadioButton("Medical staff");    
-        //rb1.setBounds(200,50,100,30);      
-        JRadioButton rb2=new JRadioButton("Researcher");    
-        //rb2.setBounds(200,100,100,30);    
+        JRadioButton rb1=new JRadioButton("Medical staff");     
+        JRadioButton rb2=new JRadioButton("Researcher");       
         ButtonGroup group=new ButtonGroup();    
-        group.add(rb1);group.add(rb2);    
-        //b.setBounds(100,150,80,30);    
-        //group.addActionListener(this);    
-        //add(rb1);add(rb2);add(b);    
+        group.add(rb1);group.add(rb2);      
 
         loginButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String userId = userField.getText();
                 String password = new String(passField.getPassword());
-                //String role = userId.startsWith("staff") ? "MedicalStaff" : "Researcher";
+
                 if(rb1.isSelected()){
                     role = "MedicalStaff";
                 }
@@ -111,14 +97,14 @@ public class MedicalDataSystem {
                     role = "Researcher";
                 }
 
-                if (credentials.get(userId + ":" + role) != null && credentials.get(userId + ":" + role).equals(password)) {
-                    User user = server.authenticateUser(userId, role);
+                User logInAttempt = server.authenticateUser(userId, password, role);
+                if(logInAttempt!= null){
                     if (role.equals("MedicalStaff")) {
-                        loggedInStaff = (MedicalStaff) user;
+                        loggedInStaff = (MedicalStaff) logInAttempt;
                         loginFrame.dispose();
                         medicalStaffGUI();
                     } else {
-                        loggedInResearcher = (Researcher) user; //switch to different screen!!
+                        loggedInResearcher = (Researcher) logInAttempt; 
                         loginFrame.dispose();
                         researcherGUI();
                     }
@@ -131,12 +117,11 @@ public class MedicalDataSystem {
 
         loginPanel.add(rb1);
         loginPanel.add(rb2);
-        //loginPanel.add(group);
         loginPanel.add(userLabel);
         loginPanel.add(userField);
         loginPanel.add(passLabel);
         loginPanel.add(passField);
-        loginPanel.add(new JLabel()); // Spacer
+        loginPanel.add(new JLabel()); 
         loginPanel.add(loginButton);
 
         loginFrame.add(loginPanel);
@@ -154,40 +139,72 @@ public class MedicalDataSystem {
         JLabel label = new JLabel("Enter Medical Data:");
         JTextField dataField = new JTextField(20);
 
-        JButton encryptButton = new JButton("Encrypt and Store Data");
+        // for now an easy implementation of selecting researchers to have access
+        JRadioButton r1_access=new JRadioButton("R. Franklin");     
+        JRadioButton r2_access=new JRadioButton("P. Ehrlich");   
+        JRadioButton r3_access=new JRadioButton("E. Blackwell"); 
+
+        JButton encryptButton = new JButton("Store Data");
         encryptButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if(loggedInStaff == null){
                     JOptionPane.showMessageDialog(staffFrame, "Only medical staff can store data.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
                 }
-                String medicalData = dataField.getText();
-                if (medicalData.isEmpty()) {
-                    JOptionPane.showMessageDialog(staffFrame, "Please enter medical data.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
+                else{
+                    String medicalData = dataField.getText();
+                    // check if there is data to be encrypted
+                    if (medicalData.isEmpty()) {
+                        JOptionPane.showMessageDialog(staffFrame, "Please enter data.", "Error", JOptionPane.ERROR_MESSAGE);
+                    } // check if the medical staff user selected researchers to have access
+                    else if(!(r1_access.isSelected()|r2_access.isSelected()|r3_access.isSelected())){
+                        JOptionPane.showMessageDialog(staffFrame, "Please select who can have access", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                    else{
+                        // first get private symmetric key, then encrypt medical data with that key, store medical data with signature
+                        SecretKey aesKey = crypt.generateAESKey();
+                        byte[] aesSalt = crypt.getSalt();
+                        byte[] encryptedMedicalData = crypt.getAESEncryption(medicalData, aesKey, aesSalt);
+
+                        String signature = loggedInStaff.signData(medicalData);
+
+                        Set<String> allowedResearchers = new HashSet<>();
+                        if(r1_access.isSelected()){allowedResearchers.add("271724");}
+                        if(r2_access.isSelected()){allowedResearchers.add("249201");}
+                        if(r3_access.isSelected()){allowedResearchers.add("200613");}
+
+                        server.storeData(dataID, encryptedMedicalData, signature, allowedResearchers);
+                        dataID++;
+
+                        // then store private symmetric key encrypted with the public key of the researchers that are granted access
+                        for 
+                        encrypted_key = loggedInStaff.encryptData(secretKey, null)
+
+                        //String encryptedData = loggedInStaff.encryptData(medicalData, loggedInResearcher.publicKey);  //hier wat aanpassen dat het gekozen lijstje is?
+                        //server.storeData(1, encryptedData, signature, allowedResearchers);
+
+                        JOptionPane.showMessageDialog(staffFrame, "Data encrypted and stored successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        dataField.setText("");
+                    }
+                    
                 }
-
-                String encryptedData = loggedInStaff.encryptData(medicalData, loggedInResearcher.publicKey);  //hier wat aanpassen dat het gekozen lijstje is?
-                String signature = loggedInStaff.signData(medicalData);
-
-                Set<String> allowedResearchers = new HashSet<>();
-                allowedResearchers.add(loggedInResearcher.id);
-                server.storeData("data1", encryptedData, signature, loggedInStaff.id, allowedResearchers);
-
-                JOptionPane.showMessageDialog(staffFrame, "Data encrypted and stored successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                dataField.setText("");
+                
             }
         });
 
         staffPanel.add(label);
         staffPanel.add(dataField);
+        staffPanel.add(r1_access);
+        staffPanel.add(r2_access);
+        staffPanel.add(r3_access);
         staffPanel.add(encryptButton);
-        //panel.add(decryptButton);
+
 
         staffFrame.getContentPane().add(staffPanel);
         staffFrame.setVisible(true);
     }
+
+
 
     private static void researcherGUI(){
         JFrame reseacherFrame = new JFrame("Medical Data Access System");
@@ -225,5 +242,8 @@ public class MedicalDataSystem {
         reseacherFrame.getContentPane().add(researcherPanel);
         reseacherFrame.setVisible(true);
     }
+
+    
+    
 }
 
