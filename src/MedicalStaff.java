@@ -5,8 +5,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 
 class MedicalStaff extends User {
-    MedicalStaff(String id) {
-        super(id, "MedicalStaff");
+    MedicalStaff(String id, String password) {
+        super(id, "MedicalStaff", password);
     }
 
     public String encryptData(String data, PublicKey researcherKey) {

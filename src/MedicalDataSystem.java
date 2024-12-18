@@ -51,15 +51,22 @@ public class MedicalDataSystem {
     private static Researcher loggedInResearcher;
     static String role;
 
-    private static final Map<String, String> credentials = new HashMap<>() {{
+    private static final Map<String, String> credentials_staff = new HashMap<>() {{
+        put("", "password1");
+        put("researcher1:Researcher", "password2");
+    }};
+
+    private static final Map<String, String> credentials_researchers = new HashMap<>() {{
         put("staff1:MedicalStaff", "password1");
         put("researcher1:Researcher", "password2");
     }};
 
     public static void main(String[] args) {
         // Create Users
-        MedicalStaff staff = new MedicalStaff("staff1");
-        Researcher researcher = new Researcher("researcher1");
+        MedicalStaff staff = new MedicalStaff("124361", "cryptographyCourse5");
+        Researcher researcher1 = new Researcher("271724", "trentoUni8");
+        Researcher researcher2 = new Researcher("249201", "computerScience9");
+        Researcher researcher3 = new Researcher("200613", "examSeason3");
 
         server.registerUser(staff);
         server.registerUser(researcher);

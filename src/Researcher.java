@@ -5,8 +5,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 
 class Researcher extends User {
-    Researcher(String id) {
-        super(id, "Researcher");
+    Researcher(String id, String password) {
+        super(id, "Researcher", password);
     }
 
     public String decryptData(String encryptedData) {
