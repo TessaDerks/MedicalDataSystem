@@ -4,6 +4,7 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -58,9 +59,9 @@ public class MedicalDataSystem {
     public static void main(String[] args) {
         // Create Users >>>> have file with users instead of creating them each time?
         server.registerUser(new MedicalStaff("124361", "cryptographyCourse5"));
-        server.registerUser(new Researcher("271724", "trentoUni8"));
-        server.registerUser(new Researcher("249201", "computerScience9"));
-        server.registerUser(new Researcher("200613", "examSeason3"));
+        server.registerUser(new Researcher("271724", "trentoUni8")); // Franklin
+        server.registerUser(new Researcher("249201", "computerScience9")); // Ehrlich
+        server.registerUser(new Researcher("200613", "examSeason3")); // Blackwell
 
         // Launch GUI
         SwingUtilities.invokeLater(MedicalDataSystem::loginGUI);
@@ -164,21 +165,32 @@ public class MedicalDataSystem {
                     else{
                         // first get private symmetric key, then encrypt medical data with that key, store medical data with signature
                         SecretKey aesKey = crypt.generateAESKey();
+                        System.out.println("key is "+aesKey);
                         byte[] aesSalt = crypt.getSalt();
+                        System.out.println("salt is "+aesSalt);
                         byte[] encryptedMedicalData = crypt.getAESEncryption(medicalData, aesKey, aesSalt);
-
+                        System.out.println("encrypted data is "+encryptedMedicalData);
                         String signature = loggedInStaff.signData(medicalData);
-
+                        System.out.println("signature is "+signature);
                         server.storeData(dataID, encryptedMedicalData, signature, loggedInStaff.getId());
 
                         Set<String> allowedResearchers = new HashSet<>();
-                        if(r1_access.isSelected()){allowedResearchers.add("271724");}
-                        if(r2_access.isSelected()){allowedResearchers.add("249201");}
-                        if(r3_access.isSelected()){allowedResearchers.add("200613");}
+                        if(r1_access.isSelected()){
+                            System.out.println("granted access to 271724");
+                            allowedResearchers.add("271724");}
+                        if(r2_access.isSelected()){
+                            System.out.println("granted access to 249201");
+                            allowedResearchers.add("249201");}
+                        if(r3_access.isSelected()){
+                            System.out.println("granted access to 200613");
+                            allowedResearchers.add("200613");}
+                        
+
 
                         // then store private symmetric key encrypted with the public key of the researchers that are granted access
                         for (String researcher : allowedResearchers) {
                             String encrypted_key = loggedInStaff.encryptData(aesKey.getEncoded(), server.getUserPublicKey(researcher));
+                            System.out.println("encrypted key "+encrypted_key+ " of researcher "+researcher);
                             server.storeResearcherKey(researcher, dataID, encrypted_key, aesSalt);
                         } 
 
@@ -228,7 +240,12 @@ public class MedicalDataSystem {
         JPanel researcherPanel = new JPanel();
         researcherPanel.setLayout(new BoxLayout(researcherPanel, BoxLayout.Y_AXIS));
 
-        JComboBox<String> dataOptions = new JComboBox<String>(server.getOptions(loggedInResearcher.id));
+        String options[] = server.getOptions(loggedInResearcher.id);
+        if(options.length == 0){
+            JOptionPane.showMessageDialog(reseacherFrame, "No data available", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        JComboBox<String> dataOptions = new JComboBox<String>(options);
 
         JButton decryptButton = new JButton("Fetch and Decrypt Data");
         decryptButton.addActionListener(new ActionListener() {
@@ -238,26 +255,37 @@ public class MedicalDataSystem {
                     JOptionPane.showMessageDialog(reseacherFrame, "Only researchers can fetch data.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
                 else{
-                    
-                    int selectedData; 
+                    String selectedData;
+                    //int selectedData; 
                     try {
-                        selectedData = Integer.parseInt((String) dataOptions.getSelectedItem());
+                        //selectedData = Integer.parseInt((String) dataOptions.getSelectedItem());
+                        selectedData = (String) dataOptions.getSelectedItem();
                         }
                         catch (NumberFormatException error) {
-                        selectedData = 0;
+                        //selectedData = 0;
+                        selectedData = "0";
                         }
                     
-                    // get encrypted key
-                    byte[] fetchedEncryptedData = server.fetchData(selectedData, loggedInResearcher.id);
+                    // get encrypted key and salt for AES
+                    ArrayList<String> keyAndSalt = server.getEncryptedKey(loggedInResearcher.id, selectedData);
+                    String encryptedKey = keyAndSalt.get(0);
+                    byte[] salt = keyAndSalt.get(1).getBytes();
+
                     // decrypt key
-                    String decryptedData = loggedInResearcher.decryptData(fetchedEncryptedData);
+                    byte[] decryptedKey = loggedInResearcher.decryptKey(encryptedKey);
                     // get encrypted data
-
+                    int selectedDataId = Integer.parseInt(selectedData);
+                    byte[] encryptedData = server.getEncryptedData(selectedDataId);
                     //use decrypted key to decrypt data
+                    String decryptedData = crypt.getAESDecryption(encryptedData,new SecretKeySpec(decryptedKey, 0, decryptedKey.length, "AES") , salt);
+                    
+                    // obtain signature of data
+                    ArrayList<String> signatureAndUserId = server.getSignature(selectedDataId);
+                    String signature = signatureAndUserId.get(0);
+                    String medicalStaffId = signatureAndUserId.get(1);
 
-                    //verify the integrity of data
-
-                    if (loggedInResearcher.verifySignature(decryptedData, server.getSignature("data1"), loggedInStaff.publicKey)) { // think I need to change something here so it goes with multiple keys
+                    //verify the integrity of data and if verified, display
+                    if (loggedInResearcher.verifySignature(decryptedData, signature, server.getUserPublicKey(medicalStaffId))) { 
                         JOptionPane.showMessageDialog(reseacherFrame, "Data decrypted and verified: " + decryptedData, "Success", JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         JOptionPane.showMessageDialog(reseacherFrame, "Data integrity verification failed.", "Error", JOptionPane.ERROR_MESSAGE);

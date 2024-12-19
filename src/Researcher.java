@@ -7,11 +7,11 @@ class Researcher extends User {
         super(id, "Researcher", password);
     }
 
-    public String decryptData(String encryptedData) {
+    public byte[] decryptKey(String encryptedData) {
         try {
             Cipher cipher = Cipher.getInstance("RSA");
             cipher.init(Cipher.DECRYPT_MODE, this.privateKey);
-            return new String(cipher.doFinal(Base64.getDecoder().decode(encryptedData)));
+            return cipher.doFinal(Base64.getDecoder().decode(encryptedData));
         } catch (Exception e) {
             e.printStackTrace();
             return null;

@@ -7,10 +7,10 @@ class Server {
     
     private Map<String, User> users = new HashMap<>();
     private Map<Integer, byte[]> database = new HashMap<>(); // the actual (encrypted) data, stored by dataid
-    private Map<Integer, Set<String>> dataSignatures = new HashMap<>(); // for each data item, signature + userid to check to ensure integrity
+    private Map<Integer, ArrayList<String>> dataSignatures = new HashMap<>(); // for each data item, signature + userid to check to ensure integrity
     // aes keys used for encrypting data, encrypted by public key of researcher needed to decrypt medical data
     // have researcherid as key with List<dataid,encrypted key, salt> as value
-    private Map<Set<String>, Set<String>> accessControl = new HashMap<>(); 
+    private Map<ArrayList<String>, ArrayList<String>> accessControl = new HashMap<>(); 
     //private Map<String, Map<Integer,Set<String>>> accessControl = new HashMap<>();
     /* 
     private Map<String, User> users = new HashMap<>();
@@ -42,8 +42,8 @@ class Server {
     public User authenticateUser(String id, String passwordAttempt, String role) {
         User user = users.get(id);
         if (user != null && user.role.equals(role)) {
-            System.out.println("user is in system and correct role");
             if(user.checkPassword(passwordAttempt)){
+                System.out.println("user is in system and authenticated");
                 return user;
             } else{ return null; }
         } else { return null; }
@@ -57,21 +57,19 @@ class Server {
     public void storeData(int dataId, byte[] encryptedData, String signature, String medicalStaffId) {
         database.put(dataId, encryptedData);
         // create set to store signature together with staff id to be able to verify later
-        Set<String> valueSet = new HashSet<>();
+        //Set<String> valueSet = new HashSet<>();
+        ArrayList<String> valueSet = new ArrayList<String>();
         valueSet.add(signature); valueSet.add(medicalStaffId);
         dataSignatures.put(dataId, valueSet);
         //accessControl.put(dataId, allowedResearchers);
     }
 
     public void storeResearcherKey(String researcherId,int dataId, String encryptedDataKey,byte[] salt){
-        Set<String> valueSet = new HashSet<>();
+        ArrayList<String> valueSet = new ArrayList<String>();
         valueSet.add(encryptedDataKey); valueSet.add(new String(salt, StandardCharsets.UTF_8));
-        Set<String> keySet = new HashSet<>();
+        ArrayList<String> keySet = new ArrayList<String>();
         keySet.add(researcherId); keySet.add(String.valueOf(dataId));
         accessControl.put(keySet,valueSet);
-        //Map<Integer,Set<String>> secondLookUpKey = new HashMap<>();
-        //secondLookUpKey.put(dataId,valueSet);
-        //accessControl.put(researcherId,secondLookUpKey);
     }
 
 
@@ -98,12 +96,14 @@ class Server {
         }
     }
     */
-     
+    public ArrayList<String> getEncryptedKey(String researcherId, String dataId){
+        return accessControl.get(new ArrayList<String>(Arrays.asList(researcherId,dataId)));
+    }
+
+
     // rewrite this with new map
-    public byte[] fetchData(int dataId, String researcherId) {
-        if (!accessControl.getOrDefault(dataId, new HashSet<>()).contains(researcherId)) {
-            throw new SecurityException("Access Denied");
-        }
+    public byte[] getEncryptedData(int dataId) {
+        // optional add (double) check if researcher indeed has been granted access
         return database.get(dataId);
     }
     /*
@@ -129,7 +129,7 @@ class Server {
      
     public String[] getOptions(String researcherId){
         Set<String> tempSet = new HashSet<>();
-        for(Set<String> key : accessControl.keySet()){
+        for(ArrayList<String> key : accessControl.keySet()){
             if(key.contains(researcherId)){
                 tempSet.addAll(key);
             }
@@ -140,7 +140,7 @@ class Server {
         return dataItems;
     }
 
-    public Set<String> getSignature(int dataId) {
+    public ArrayList<String> getSignature(int dataId) {
         return dataSignatures.get(dataId);
     }
      
