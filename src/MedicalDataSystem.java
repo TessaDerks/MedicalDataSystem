@@ -126,6 +126,7 @@ public class MedicalDataSystem {
 
         loginFrame.add(loginPanel);
         loginFrame.setVisible(true);
+
     }
 
     private static void medicalStaffGUI() {
@@ -142,7 +143,7 @@ public class MedicalDataSystem {
         // for now an easy implementation of selecting researchers to have access
         JRadioButton r1_access=new JRadioButton("R. Franklin");     
         JRadioButton r2_access=new JRadioButton("P. Ehrlich");   
-        JRadioButton r3_access=new JRadioButton("E. Blackwell"); 
+        JRadioButton r3_access=new JRadioButton("E. Blackwell");
 
         JButton encryptButton = new JButton("Store Data");
         encryptButton.addActionListener(new ActionListener() {
@@ -168,18 +169,21 @@ public class MedicalDataSystem {
 
                         String signature = loggedInStaff.signData(medicalData);
 
+                        server.storeData(dataID, encryptedMedicalData, signature, loggedInStaff.getId());
+
                         Set<String> allowedResearchers = new HashSet<>();
                         if(r1_access.isSelected()){allowedResearchers.add("271724");}
                         if(r2_access.isSelected()){allowedResearchers.add("249201");}
                         if(r3_access.isSelected()){allowedResearchers.add("200613");}
 
-                        server.storeData(dataID, encryptedMedicalData, signature, allowedResearchers);
-                        dataID++;
-
                         // then store private symmetric key encrypted with the public key of the researchers that are granted access
-                        for 
-                        encrypted_key = loggedInStaff.encryptData(secretKey, null)
+                        for (String researcher : allowedResearchers) {
+                            String encrypted_key = loggedInStaff.encryptData(aesKey.getEncoded(), server.getUserPublicKey(researcher));
+                            server.storeResearcherKey(researcher, dataID, encrypted_key, aesSalt);
+                        } 
 
+                        
+                        dataID++;
                         //String encryptedData = loggedInStaff.encryptData(medicalData, loggedInResearcher.publicKey);  //hier wat aanpassen dat het gekozen lijstje is?
                         //server.storeData(1, encryptedData, signature, allowedResearchers);
 
@@ -192,18 +196,28 @@ public class MedicalDataSystem {
             }
         });
 
+        JButton logoutButton = new JButton("Log out");
+        logoutButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                loggedInStaff = null;
+                staffFrame.dispose();
+                loginGUI();
+            }
+        });
+
         staffPanel.add(label);
         staffPanel.add(dataField);
         staffPanel.add(r1_access);
         staffPanel.add(r2_access);
         staffPanel.add(r3_access);
         staffPanel.add(encryptButton);
-
+        staffPanel.add(logoutButton);
 
         staffFrame.getContentPane().add(staffPanel);
         staffFrame.setVisible(true);
+        
     }
-
 
 
     private static void researcherGUI(){
@@ -214,36 +228,63 @@ public class MedicalDataSystem {
         JPanel researcherPanel = new JPanel();
         researcherPanel.setLayout(new BoxLayout(researcherPanel, BoxLayout.Y_AXIS));
 
+        JComboBox<String> dataOptions = new JComboBox<String>(server.getOptions(loggedInResearcher.id));
+
         JButton decryptButton = new JButton("Fetch and Decrypt Data");
         decryptButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (loggedInResearcher == null) {
                     JOptionPane.showMessageDialog(reseacherFrame, "Only researchers can fetch data.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
                 }
-                try {
-                    String fetchedEncryptedData = server.fetchData("data1", loggedInResearcher.id);
+                else{
+                    
+                    int selectedData; 
+                    try {
+                        selectedData = Integer.parseInt((String) dataOptions.getSelectedItem());
+                        }
+                        catch (NumberFormatException error) {
+                        selectedData = 0;
+                        }
+                    
+                    // get encrypted key
+                    byte[] fetchedEncryptedData = server.fetchData(selectedData, loggedInResearcher.id);
+                    // decrypt key
                     String decryptedData = loggedInResearcher.decryptData(fetchedEncryptedData);
+                    // get encrypted data
+
+                    //use decrypted key to decrypt data
+
+                    //verify the integrity of data
 
                     if (loggedInResearcher.verifySignature(decryptedData, server.getSignature("data1"), loggedInStaff.publicKey)) { // think I need to change something here so it goes with multiple keys
                         JOptionPane.showMessageDialog(reseacherFrame, "Data decrypted and verified: " + decryptedData, "Success", JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         JOptionPane.showMessageDialog(reseacherFrame, "Data integrity verification failed.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
-                } catch (SecurityException ex) {
-                    JOptionPane.showMessageDialog(reseacherFrame, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
                 }
+                
             }
         });
 
+        JButton logoutButton = new JButton("Log out");
+        logoutButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                loggedInResearcher = null;
+                reseacherFrame.dispose();
+                loginGUI();
+            }
+        });
+
+        researcherPanel.add(dataOptions);
         researcherPanel.add(decryptButton);
+        researcherPanel.add(logoutButton);
 
         reseacherFrame.getContentPane().add(researcherPanel);
         reseacherFrame.setVisible(true);
     }
 
-    
     
 }
 

@@ -11,7 +11,7 @@ import javax.crypto.spec.PBEKeySpec;
 
 
 abstract class User {
-    String id;
+    protected String id;
     String role;
     private byte[] passwordHash;
     PublicKey publicKey;
@@ -25,10 +25,8 @@ abstract class User {
         this.role = role;
         this.salt = crypt.getSalt();
         this.passwordHash = generateHash(password);
-        generateKeyPair();
-        
+        generateKeyPair();  
     }
-
 
     // add padding??
     private byte[] generateHash(String input){ 
@@ -61,6 +59,8 @@ abstract class User {
         boolean permission = Arrays.equals(hashAttempt,this.passwordHash);
         return permission;
     }
+
+    
  
 }
 

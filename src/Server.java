@@ -1,3 +1,4 @@
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.*;
 
@@ -6,11 +7,11 @@ class Server {
     
     private Map<String, User> users = new HashMap<>();
     private Map<Integer, byte[]> database = new HashMap<>(); // the actual (encrypted) data, stored by dataid
-    private Map<Integer, String> dataSignatures = new HashMap<>(); // for each data item signatures to ensure integrity
-    private Map<Integer, Set<String>> accessControl = new HashMap<>(); // which researchers are granted access for each data item
-    private Map<Integer, String> dataKeys = new HashMap<>(); // aes keys used for encrypting data, encrypted by public key of researcher needed to decrypt medical data
-    //private Map<String,PublicKey> publicKeysResearchers = new HashMap<>(); // to encrypt the symmetric key for the researchers
-    //private Map<String,PublicKey> publicKeysMedicalStaff = new HashMap<>(); // to verify signature of medical staff
+    private Map<Integer, Set<String>> dataSignatures = new HashMap<>(); // for each data item, signature + userid to check to ensure integrity
+    // aes keys used for encrypting data, encrypted by public key of researcher needed to decrypt medical data
+    // have researcherid as key with List<dataid,encrypted key, salt> as value
+    private Map<Set<String>, Set<String>> accessControl = new HashMap<>(); 
+    //private Map<String, Map<Integer,Set<String>>> accessControl = new HashMap<>();
     /* 
     private Map<String, User> users = new HashMap<>();
     private Connection dbConnection;
@@ -44,13 +45,8 @@ class Server {
             System.out.println("user is in system and correct role");
             if(user.checkPassword(passwordAttempt)){
                 return user;
-            }
-            else{
-                return null;
-            }
-        } else {
-            return null;
-        }
+            } else{ return null; }
+        } else { return null; }
     }
 
     public void registerUser(User user) {
@@ -58,14 +54,24 @@ class Server {
     }
     
     // MAYBE GET EVERYTHING IN 1 HASHMAP/TABLE? IDK?
-    public void storeData(int dataId, byte[] encryptedData, String signature, Set<String> allowedResearchers) {
+    public void storeData(int dataId, byte[] encryptedData, String signature, String medicalStaffId) {
         database.put(dataId, encryptedData);
-        dataSignatures.put(dataId, signature);
-        accessControl.put(dataId, allowedResearchers);
+        // create set to store signature together with staff id to be able to verify later
+        Set<String> valueSet = new HashSet<>();
+        valueSet.add(signature); valueSet.add(medicalStaffId);
+        dataSignatures.put(dataId, valueSet);
+        //accessControl.put(dataId, allowedResearchers);
     }
 
-    public void storeDataKey(int dataId, String dataKey){
-
+    public void storeResearcherKey(String researcherId,int dataId, String encryptedDataKey,byte[] salt){
+        Set<String> valueSet = new HashSet<>();
+        valueSet.add(encryptedDataKey); valueSet.add(new String(salt, StandardCharsets.UTF_8));
+        Set<String> keySet = new HashSet<>();
+        keySet.add(researcherId); keySet.add(String.valueOf(dataId));
+        accessControl.put(keySet,valueSet);
+        //Map<Integer,Set<String>> secondLookUpKey = new HashMap<>();
+        //secondLookUpKey.put(dataId,valueSet);
+        //accessControl.put(researcherId,secondLookUpKey);
     }
 
 
@@ -93,6 +99,7 @@ class Server {
     }
     */
      
+    // rewrite this with new map
     public byte[] fetchData(int dataId, String researcherId) {
         if (!accessControl.getOrDefault(dataId, new HashSet<>()).contains(researcherId)) {
             throw new SecurityException("Access Denied");
@@ -120,7 +127,20 @@ class Server {
         }
     */
      
-    public String getSignature(int dataId) {
+    public String[] getOptions(String researcherId){
+        Set<String> tempSet = new HashSet<>();
+        for(Set<String> key : accessControl.keySet()){
+            if(key.contains(researcherId)){
+                tempSet.addAll(key);
+            }
+        }
+        tempSet.remove(researcherId);
+        String dataItems[] = new String[tempSet.size()];
+        tempSet.toArray(dataItems);
+        return dataItems;
+    }
+
+    public Set<String> getSignature(int dataId) {
         return dataSignatures.get(dataId);
     }
      
