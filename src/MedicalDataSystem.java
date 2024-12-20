@@ -1,15 +1,12 @@
 import java.util.*;
-
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
+
 
 public class MedicalDataSystem {
 
@@ -54,7 +51,7 @@ public class MedicalDataSystem {
     private static MedicalStaff loggedInStaff;
     private static Researcher loggedInResearcher;
     static String role;
-    private static int dataID = 0;
+    private static int dataID = 300;
 
     public static void main(String[] args) {
         // Create Users >>>> have file with users instead of creating them each time?
@@ -62,6 +59,8 @@ public class MedicalDataSystem {
         server.registerUser(new Researcher("271724", "trentoUni8")); // Franklin
         server.registerUser(new Researcher("249201", "computerScience9")); // Ehrlich
         server.registerUser(new Researcher("200613", "examSeason3")); // Blackwell
+
+        server.registerUser(new MedicalStaff("1234", "zucht"));
 
         // Launch GUI
         SwingUtilities.invokeLater(MedicalDataSystem::loginGUI);
@@ -165,32 +164,24 @@ public class MedicalDataSystem {
                     else{
                         // first get private symmetric key, then encrypt medical data with that key, store medical data with signature
                         SecretKey aesKey = crypt.generateAESKey();
-                        System.out.println("key is "+aesKey);
                         byte[] aesSalt = crypt.getSalt();
-                        System.out.println("salt is "+aesSalt);
                         byte[] encryptedMedicalData = crypt.getAESEncryption(medicalData, aesKey, aesSalt);
-                        System.out.println("encrypted data is "+encryptedMedicalData);
-                        String signature = loggedInStaff.signData(medicalData);
-                        System.out.println("signature is "+signature);
+                        byte[] signature = loggedInStaff.signData(medicalData);
                         server.storeData(dataID, encryptedMedicalData, signature, loggedInStaff.getId());
 
                         Set<String> allowedResearchers = new HashSet<>();
                         if(r1_access.isSelected()){
-                            System.out.println("granted access to 271724");
                             allowedResearchers.add("271724");}
                         if(r2_access.isSelected()){
-                            System.out.println("granted access to 249201");
                             allowedResearchers.add("249201");}
                         if(r3_access.isSelected()){
-                            System.out.println("granted access to 200613");
                             allowedResearchers.add("200613");}
                         
 
 
                         // then store private symmetric key encrypted with the public key of the researchers that are granted access
                         for (String researcher : allowedResearchers) {
-                            String encrypted_key = loggedInStaff.encryptData(aesKey.getEncoded(), server.getUserPublicKey(researcher));
-                            System.out.println("encrypted key "+encrypted_key+ " of researcher "+researcher);
+                            byte[] encrypted_key = loggedInStaff.encryptData(aesKey.getEncoded(), server.getUserPublicKey(researcher));
                             server.storeResearcherKey(researcher, dataID, encrypted_key, aesSalt);
                         } 
 
@@ -244,8 +235,7 @@ public class MedicalDataSystem {
         if(options.length == 0){
             JOptionPane.showMessageDialog(reseacherFrame, "No data available", "Error", JOptionPane.ERROR_MESSAGE);
         }
-
-        JComboBox<String> dataOptions = new JComboBox<String>(options);
+        JComboBox<String> dataOptions = new JComboBox<>(options);
 
         JButton decryptButton = new JButton("Fetch and Decrypt Data");
         decryptButton.addActionListener(new ActionListener() {
@@ -256,20 +246,17 @@ public class MedicalDataSystem {
                 }
                 else{
                     String selectedData;
-                    //int selectedData; 
                     try {
-                        //selectedData = Integer.parseInt((String) dataOptions.getSelectedItem());
                         selectedData = (String) dataOptions.getSelectedItem();
                         }
                         catch (NumberFormatException error) {
-                        //selectedData = 0;
                         selectedData = "0";
                         }
                     
                     // get encrypted key and salt for AES
-                    ArrayList<String> keyAndSalt = server.getEncryptedKey(loggedInResearcher.id, selectedData);
-                    String encryptedKey = keyAndSalt.get(0);
-                    byte[] salt = keyAndSalt.get(1).getBytes();
+                    ArrayList<byte[]> keyAndSalt = server.getEncryptedKey(loggedInResearcher.id, selectedData);
+                    byte[] encryptedKey = keyAndSalt.get(0);
+                    byte[] salt = keyAndSalt.get(1);
 
                     // decrypt key
                     byte[] decryptedKey = loggedInResearcher.decryptKey(encryptedKey);
@@ -280,9 +267,9 @@ public class MedicalDataSystem {
                     String decryptedData = crypt.getAESDecryption(encryptedData,new SecretKeySpec(decryptedKey, 0, decryptedKey.length, "AES") , salt);
                     
                     // obtain signature of data
-                    ArrayList<String> signatureAndUserId = server.getSignature(selectedDataId);
-                    String signature = signatureAndUserId.get(0);
-                    String medicalStaffId = signatureAndUserId.get(1);
+                    ArrayList<byte[]> signatureAndUserId = server.getSignature(selectedDataId);
+                    byte[] signature = signatureAndUserId.get(0);
+                    String medicalStaffId = new String(signatureAndUserId.get(1),StandardCharsets.UTF_8);
 
                     //verify the integrity of data and if verified, display
                     if (loggedInResearcher.verifySignature(decryptedData, signature, server.getUserPublicKey(medicalStaffId))) { 

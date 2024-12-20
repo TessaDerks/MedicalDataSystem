@@ -3,7 +3,6 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.SecureRandom;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
 import javax.crypto.SecretKeyFactory;
@@ -59,8 +58,6 @@ abstract class User {
         boolean permission = Arrays.equals(hashAttempt,this.passwordHash);
         return permission;
     }
-
-    
  
 }
 

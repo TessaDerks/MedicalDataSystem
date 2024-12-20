@@ -7,37 +7,10 @@ class Server {
     
     private Map<String, User> users = new HashMap<>();
     private Map<Integer, byte[]> database = new HashMap<>(); // the actual (encrypted) data, stored by dataid
-    private Map<Integer, ArrayList<String>> dataSignatures = new HashMap<>(); // for each data item, signature + userid to check to ensure integrity
+    private Map<Integer, ArrayList<byte[]>> dataSignatures = new HashMap<>(); // for each data item, signature + userid to check to ensure integrity
     // aes keys used for encrypting data, encrypted by public key of researcher needed to decrypt medical data
     // have researcherid as key with List<dataid,encrypted key, salt> as value
-    private Map<ArrayList<String>, ArrayList<String>> accessControl = new HashMap<>(); 
-    //private Map<String, Map<Integer,Set<String>>> accessControl = new HashMap<>();
-    /* 
-    private Map<String, User> users = new HashMap<>();
-    private Connection dbConnection;
-    
-    public Server() {
-        try {
-            dbConnection = DriverManager.getConnection("jdbc:mysql://localhost:3306/medical_data", "root", "password");
-            System.out.println("Database connection established.");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void registerUser(User user) {
-        users.put(user.id, user);
-        try {
-            String query = "INSERT INTO users (id, role) VALUES (?, ?)";
-            PreparedStatement stmt = dbConnection.prepareStatement(query);
-            stmt.setString(1, user.id);
-            stmt.setString(2, user.role);
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-    */
+    private Map<ArrayList<String>, ArrayList<byte[]>> accessControl = new HashMap<>(); 
 
     public User authenticateUser(String id, String passwordAttempt, String role) {
         User user = users.get(id);
@@ -53,55 +26,26 @@ class Server {
         users.put(user.id, user);
     }
     
-    // MAYBE GET EVERYTHING IN 1 HASHMAP/TABLE? IDK?
-    public void storeData(int dataId, byte[] encryptedData, String signature, String medicalStaffId) {
+    public void storeData(int dataId, byte[] encryptedData, byte[] signature, String medicalStaffId) {
         database.put(dataId, encryptedData);
-        // create set to store signature together with staff id to be able to verify later
-        //Set<String> valueSet = new HashSet<>();
-        ArrayList<String> valueSet = new ArrayList<String>();
-        valueSet.add(signature); valueSet.add(medicalStaffId);
+        ArrayList<byte[]> valueSet = new ArrayList<byte[]>();
+        valueSet.add(signature); valueSet.add(medicalStaffId.getBytes(StandardCharsets.UTF_8));
         dataSignatures.put(dataId, valueSet);
-        //accessControl.put(dataId, allowedResearchers);
     }
 
-    public void storeResearcherKey(String researcherId,int dataId, String encryptedDataKey,byte[] salt){
-        ArrayList<String> valueSet = new ArrayList<String>();
-        valueSet.add(encryptedDataKey); valueSet.add(new String(salt, StandardCharsets.UTF_8));
+    public void storeResearcherKey(String researcherId,int dataId, byte[] encryptedDataKey,byte[] salt){
+        ArrayList<byte[]> valueSet = new ArrayList<byte[]>();
+        valueSet.add(encryptedDataKey); valueSet.add(salt);
         ArrayList<String> keySet = new ArrayList<String>();
         keySet.add(researcherId); keySet.add(String.valueOf(dataId));
         accessControl.put(keySet,valueSet);
     }
 
-
-    /*
-    public void storeData(String dataId, String encryptedData, String signature, String medicalStaffId, Set<String> allowedResearchers) {
-        try {
-            String query = "INSERT INTO data_store (data_id, encrypted_data, signature, medical_staff_id) VALUES (?, ?, ?, ?)";
-            PreparedStatement stmt = dbConnection.prepareStatement(query);
-            stmt.setString(1, dataId);
-            stmt.setString(2, encryptedData);
-            stmt.setString(3, signature);
-            stmt.setString(4, medicalStaffId);
-            stmt.executeUpdate();
-
-            for (String researcherId : allowedResearchers) {
-                String accessQuery = "INSERT INTO access_control (data_id, researcher_id) VALUES (?, ?)";
-                PreparedStatement accessStmt = dbConnection.prepareStatement(accessQuery);
-                accessStmt.setString(1, dataId);
-                accessStmt.setString(2, researcherId);
-                accessStmt.executeUpdate();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-    */
-    public ArrayList<String> getEncryptedKey(String researcherId, String dataId){
+    public ArrayList<byte[]> getEncryptedKey(String researcherId, String dataId){
         return accessControl.get(new ArrayList<String>(Arrays.asList(researcherId,dataId)));
     }
 
 
-    // rewrite this with new map
     public byte[] getEncryptedData(int dataId) {
         // optional add (double) check if researcher indeed has been granted access
         return database.get(dataId);
@@ -128,39 +72,22 @@ class Server {
     */
      
     public String[] getOptions(String researcherId){
-        Set<String> tempSet = new HashSet<>();
+        ArrayList<String> tempSet = new ArrayList<String>();
         for(ArrayList<String> key : accessControl.keySet()){
             if(key.contains(researcherId)){
-                tempSet.addAll(key);
+                tempSet.add(key.get(1));
             }
         }
-        tempSet.remove(researcherId);
-        String dataItems[] = new String[tempSet.size()];
+        //tempSet.remove(researcherId);
+        String[] dataItems = new String[tempSet.size()];
         tempSet.toArray(dataItems);
         return dataItems;
     }
 
-    public ArrayList<String> getSignature(int dataId) {
+    public ArrayList<byte[]> getSignature(int dataId) {
         return dataSignatures.get(dataId);
     }
      
-    /*
-    public String getSignature(String dataId) {
-        try {
-            String query = "SELECT signature FROM data_store WHERE data_id = ?";
-            PreparedStatement stmt = dbConnection.prepareStatement(query);
-            stmt.setString(1, dataId);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return rs.getString("signature");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-    */
     public PublicKey getUserPublicKey(String userId) {
         return users.get(userId).publicKey;
     }
