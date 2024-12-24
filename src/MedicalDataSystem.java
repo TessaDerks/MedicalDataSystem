@@ -145,7 +145,7 @@ public class MedicalDataSystem {
 
                         // then store private symmetric key encrypted with the public key of the researchers that are granted access
                         for (String researcher : allowedResearchers) {
-                            byte[] encrypted_key = loggedInStaff.encryptData(aesKey.getEncoded(), server.getUserPublicKey(researcher));
+                            byte[] encrypted_key = loggedInStaff.encryptKey(aesKey.getEncoded(), server.getUserPublicKey(researcher));
                             server.storeResearcherKey(researcher, dataID, encrypted_key, aesIV);
                         } 
 

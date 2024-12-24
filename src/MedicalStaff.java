@@ -7,9 +7,9 @@ class MedicalStaff extends User {
     }
 
     // used to encrypt the secret key
-    public byte[] encryptData(byte[] data, PublicKey researcherKey) {
+    public byte[] encryptKey(byte[] data, PublicKey researcherKey) {
         try {
-            Cipher cipher = Cipher.getInstance("RSA");
+            Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
             cipher.init(Cipher.ENCRYPT_MODE, researcherKey);
             return cipher.doFinal(data);
         } catch (Exception e) {
