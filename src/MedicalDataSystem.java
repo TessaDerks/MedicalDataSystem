@@ -10,42 +10,6 @@ import java.nio.charset.StandardCharsets;
 
 public class MedicalDataSystem {
 
-    /* 
-    public static void main(String[] args) {
-        try {
-            Server server = new Server();
-
-            // Create Users
-            MedicalStaff staff = new MedicalStaff("staff1");
-            Researcher researcher = new Researcher("researcher1");
-
-            server.registerUser(staff);
-            server.registerUser(researcher);
-
-            // Medical Staff Encrypts and Signs Data
-            String medicalData = "Sensitive Patient Data";
-            String encryptedData = staff.encryptData(medicalData, researcher.publicKey);
-            String signature = staff.signData(medicalData);
-
-            // Store Data on Server
-            Set<String> allowedResearchers = new HashSet<>();
-            allowedResearchers.add(researcher.id);
-            server.storeData("data1", encryptedData, signature, staff.id, allowedResearchers);
-
-            // Researcher Fetches and Verifies Data
-            String fetchedEncryptedData = server.fetchData("data1", researcher.id);
-            String decryptedData = researcher.decryptData(fetchedEncryptedData);
-
-            if (researcher.verifySignature(decryptedData, server.getSignature("data1"), staff.publicKey)) {
-                System.out.println("Data verified and decrypted: " + decryptedData);
-            } else {
-                System.out.println("Data integrity verification failed.");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-        */
     private static cryptographyMethods crypt = new cryptographyMethods();
     private static Server server = new Server();
     private static MedicalStaff loggedInStaff;
@@ -164,8 +128,8 @@ public class MedicalDataSystem {
                     else{
                         // first get private symmetric key, then encrypt medical data with that key, store medical data with signature
                         SecretKey aesKey = crypt.generateAESKey();
-                        byte[] aesSalt = crypt.getSalt();
-                        byte[] encryptedMedicalData = crypt.getAESEncryption(medicalData, aesKey, aesSalt);
+                        byte[] aesIV = crypt.getSalt();
+                        byte[] encryptedMedicalData = crypt.getAESEncryption(medicalData, aesKey, aesIV);
                         byte[] signature = loggedInStaff.signData(medicalData);
                         server.storeData(dataID, encryptedMedicalData, signature, loggedInStaff.getId());
 
@@ -182,13 +146,11 @@ public class MedicalDataSystem {
                         // then store private symmetric key encrypted with the public key of the researchers that are granted access
                         for (String researcher : allowedResearchers) {
                             byte[] encrypted_key = loggedInStaff.encryptData(aesKey.getEncoded(), server.getUserPublicKey(researcher));
-                            server.storeResearcherKey(researcher, dataID, encrypted_key, aesSalt);
+                            server.storeResearcherKey(researcher, dataID, encrypted_key, aesIV);
                         } 
 
                         
                         dataID++;
-                        //String encryptedData = loggedInStaff.encryptData(medicalData, loggedInResearcher.publicKey);  //hier wat aanpassen dat het gekozen lijstje is?
-                        //server.storeData(1, encryptedData, signature, allowedResearchers);
 
                         JOptionPane.showMessageDialog(staffFrame, "Data encrypted and stored successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
                         dataField.setText("");
@@ -218,8 +180,7 @@ public class MedicalDataSystem {
         staffPanel.add(logoutButton);
 
         staffFrame.getContentPane().add(staffPanel);
-        staffFrame.setVisible(true);
-        
+        staffFrame.setVisible(true);  
     }
 
 
@@ -253,10 +214,10 @@ public class MedicalDataSystem {
                         selectedData = "0";
                         }
                     
-                    // get encrypted key and salt for AES
-                    ArrayList<byte[]> keyAndSalt = server.getEncryptedKey(loggedInResearcher.id, selectedData);
-                    byte[] encryptedKey = keyAndSalt.get(0);
-                    byte[] salt = keyAndSalt.get(1);
+                    // get encrypted key and IV for AES
+                    ArrayList<byte[]> keyAndIV = server.getEncryptedKey(loggedInResearcher.id, selectedData);
+                    byte[] encryptedKey = keyAndIV.get(0);
+                    byte[] iv = keyAndIV.get(1);
 
                     // decrypt key
                     byte[] decryptedKey = loggedInResearcher.decryptKey(encryptedKey);
@@ -264,7 +225,7 @@ public class MedicalDataSystem {
                     int selectedDataId = Integer.parseInt(selectedData);
                     byte[] encryptedData = server.getEncryptedData(selectedDataId);
                     //use decrypted key to decrypt data
-                    String decryptedData = crypt.getAESDecryption(encryptedData,new SecretKeySpec(decryptedKey, 0, decryptedKey.length, "AES") , salt);
+                    String decryptedData = crypt.getAESDecryption(encryptedData,new SecretKeySpec(decryptedKey, 0, decryptedKey.length, "AES") , iv);
                     
                     // obtain signature of data
                     ArrayList<byte[]> signatureAndUserId = server.getSignature(selectedDataId);

@@ -4,13 +4,11 @@ import java.util.*;
 
 class Server {
 
-    
     private Map<String, User> users = new HashMap<>();
-    private Map<Integer, byte[]> database = new HashMap<>(); // the actual (encrypted) data, stored by dataid
+    private Map<Integer, byte[]> database = new HashMap<>(); // the (encrypted) data, stored by dataid
     private Map<Integer, ArrayList<byte[]>> dataSignatures = new HashMap<>(); // for each data item, signature + userid to check to ensure integrity
     // aes keys used for encrypting data, encrypted by public key of researcher needed to decrypt medical data
-    // have researcherid as key with List<dataid,encrypted key, salt> as value
-    private Map<ArrayList<String>, ArrayList<byte[]>> accessControl = new HashMap<>(); 
+    private Map<ArrayList<String>, ArrayList<byte[]>> accessControl = new HashMap<>(); // have <researcherid, dataid> as key with <encrypted key, iv> as value
 
     public User authenticateUser(String id, String passwordAttempt, String role) {
         User user = users.get(id);
@@ -33,9 +31,9 @@ class Server {
         dataSignatures.put(dataId, valueSet);
     }
 
-    public void storeResearcherKey(String researcherId,int dataId, byte[] encryptedDataKey,byte[] salt){
+    public void storeResearcherKey(String researcherId,int dataId, byte[] encryptedDataKey,byte[] iv){
         ArrayList<byte[]> valueSet = new ArrayList<byte[]>();
-        valueSet.add(encryptedDataKey); valueSet.add(salt);
+        valueSet.add(encryptedDataKey); valueSet.add(iv);
         ArrayList<String> keySet = new ArrayList<String>();
         keySet.add(researcherId); keySet.add(String.valueOf(dataId));
         accessControl.put(keySet,valueSet);
@@ -50,27 +48,7 @@ class Server {
         // optional add (double) check if researcher indeed has been granted access
         return database.get(dataId);
     }
-    /*
-    public String fetchData(String dataId, String researcherId) {
-            try {
-                String query = "SELECT encrypted_data FROM data_store ds JOIN access_control ac ON ds.data_id = ac.data_id WHERE ds.data_id = ? AND ac.researcher_id = ?";
-                PreparedStatement stmt = dbConnection.prepareStatement(query);
-                stmt.setString(1, dataId);
-                stmt.setString(2, researcherId);
-                ResultSet rs = stmt.executeQuery();
-
-                if (rs.next()) {
-                    return rs.getString("encrypted_data");
-                } else {
-                    throw new SecurityException("Access Denied");
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
-    */
-     
+    
     public String[] getOptions(String researcherId){
         ArrayList<String> tempSet = new ArrayList<String>();
         for(ArrayList<String> key : accessControl.keySet()){
@@ -78,7 +56,6 @@ class Server {
                 tempSet.add(key.get(1));
             }
         }
-        //tempSet.remove(researcherId);
         String[] dataItems = new String[tempSet.size()];
         tempSet.toArray(dataItems);
         return dataItems;

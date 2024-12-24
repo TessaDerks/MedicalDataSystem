@@ -20,6 +20,7 @@ public final class cryptographyMethods {
         }
     }
 
+    // create salt / initialization vector
     public byte[] getSalt(){
         SecureRandom random = new SecureRandom();
         byte[] salt= new byte[16];
@@ -27,12 +28,12 @@ public final class cryptographyMethods {
         return salt;
     }
 
-    public byte[] getAESEncryption(String plainText, SecretKey secretKey, byte[] salt)
+    public byte[] getAESEncryption(String plainText, SecretKey secretKey, byte[] iv)
     {
         try {
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
  
-            IvParameterSpec ivParameterSpec = new IvParameterSpec(salt);
+            IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
     
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParameterSpec);
     
@@ -45,12 +46,12 @@ public final class cryptographyMethods {
     }
  
 
-    public String getAESDecryption(byte[] cipherText,SecretKey secretKey,byte[] salt) 
+    public String getAESDecryption(byte[] cipherText,SecretKey secretKey,byte[] iv) 
     {
         try {
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
  
-            IvParameterSpec ivParameterSpec = new IvParameterSpec(salt);
+            IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
 
             cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec);
     

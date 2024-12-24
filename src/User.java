@@ -11,7 +11,7 @@ import javax.crypto.spec.PBEKeySpec;
 
 abstract class User {
     protected String id;
-    String role;
+    protected String role;
     private byte[] passwordHash;
     PublicKey publicKey;
     protected PrivateKey privateKey;
