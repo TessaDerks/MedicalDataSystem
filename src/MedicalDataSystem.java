@@ -18,13 +18,11 @@ public class MedicalDataSystem {
     private static int dataID = 300;
 
     public static void main(String[] args) {
-        // Create Users >>>> have file with users instead of creating them each time?
+        // Create Users 
         server.registerUser(new MedicalStaff("124361", "cryptographyCourse5"));
         server.registerUser(new Researcher("271724", "trentoUni8")); // Franklin
         server.registerUser(new Researcher("249201", "computerScience9")); // Ehrlich
         server.registerUser(new Researcher("200613", "examSeason3")); // Blackwell
-
-        server.registerUser(new MedicalStaff("1234", "zucht"));
 
         // Launch GUI
         SwingUtilities.invokeLater(MedicalDataSystem::loginGUI);

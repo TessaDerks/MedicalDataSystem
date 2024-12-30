@@ -27,11 +27,10 @@ abstract class User {
         generateKeyPair();  
     }
 
-    // add padding??
     private byte[] generateHash(String input){ 
         
         try{
-            KeySpec spec = new PBEKeySpec(input.toCharArray(), this.salt, 65536, 128);
+            KeySpec spec = new PBEKeySpec(input.toCharArray(), this.salt, 65536, 256);
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
             byte[] hash = factory.generateSecret(spec).getEncoded();
             return hash;
@@ -47,7 +46,7 @@ abstract class User {
             keyPairGen.initialize(2048);
             KeyPair pair = keyPairGen.generateKeyPair();
             this.publicKey = pair.getPublic();
-            this.privateKey = pair.getPrivate(); // SHOULD ENCRYPT THIS WITH THE PASSWORD
+            this.privateKey = pair.getPrivate(); 
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }

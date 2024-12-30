@@ -45,7 +45,6 @@ class Server {
 
 
     public byte[] getEncryptedData(int dataId) {
-        // optional add (double) check if researcher indeed has been granted access
         return database.get(dataId);
     }
     

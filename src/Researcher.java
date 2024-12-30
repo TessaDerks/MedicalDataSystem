@@ -8,7 +8,6 @@ class Researcher extends User {
 
     public byte[] decryptKey(byte[] encryptedData) {
         try {
-            //Cipher cipher = Cipher.getInstance("RSA");
             Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
             cipher.init(Cipher.DECRYPT_MODE, this.privateKey);
             return cipher.doFinal(encryptedData);
